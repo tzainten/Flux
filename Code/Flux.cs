@@ -106,10 +106,10 @@ public class Flux : BaseSandboxPlugin
 			var path = Path.Combine( destination, Path.GetFileName( file ).Replace( "$projectName", projectName ) );
 			File.Copy( file, path, overwrite: true );
 			var contents = File.ReadAllText( path );
-			contents = contents.Replace( "$projectName", projectName );
-			contents = contents.Replace( "$package", package );
-			contents = contents.Replace( "$sbox", Instance.SandboxRoot );
-			contents = contents.Replace( "$root", Instance.Root );
+			contents = contents.Replace( "${projectName}", projectName );
+			contents = contents.Replace( "${package}", package );
+			contents = contents.Replace( "${sbox}", Instance.SandboxRoot );
+			contents = contents.Replace( "${root}", Instance.Root );
 			File.WriteAllText( path, contents );
 		}
 
