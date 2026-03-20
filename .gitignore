@@ -29,3 +29,5 @@ code/Properties/*
 Exports/
 Build/
 Intermediate/
+
+!flex/**

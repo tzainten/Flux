@@ -1,0 +1,46 @@
+<Project>
+
+	<PropertyGroup>
+		<BaseIntermediateOutputPath>..\Intermediate</BaseIntermediateOutputPath>
+	</PropertyGroup>
+
+	<Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<RootNamespace>${projectName}</RootNamespace>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<BaseOutputPath>..\Build</BaseOutputPath>
+	</PropertyGroup>
+
+	<Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+	<ItemGroup>
+		<Using Include="Sandbox.Internal.GlobalGameNamespace" Static="true" />
+		<Using Include="Microsoft.AspNetCore.Components" />
+		<Using Include="Microsoft.AspNetCore.Components.Rendering" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Analyzer Include="${sbox}bin\managed\Sandbox.CodeUpgrader.dll"/> 
+		<Analyzer Include="${sbox}bin\managed\Sandbox.Generator.dll"/> 
+		<Reference Include="${sbox}bin\managed\Sandbox.System.dll"/> 
+		<Reference Include="${sbox}bin\managed\Sandbox.Engine.dll"/> 
+		<Reference Include="${sbox}bin\managed\Sandbox.Filesystem.dll"/> 
+		<Reference Include="${sbox}bin\managed\Sandbox.Reflection.dll"/> 
+		<Reference Include="${sbox}bin\managed\Sandbox.Mounting.dll"/> 
+		<Reference Include="${sbox}bin\managed\Microsoft.AspNetCore.Components.dll"/> 
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="${root}ThirdParty\*.dll">
+			<HintPath>%(Identity)</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="${sbox}addons/base/code/Base Library.csproj" />
+	</ItemGroup>
+
+</Project>
