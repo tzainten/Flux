@@ -1,0 +1,10 @@
+<Project>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+		<RootNamespace>${projectName}</RootNamespace>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<BaseIntermediateOutputPath>..\Intermediate</BaseIntermediateOutputPath>
+        <BaseOutputPath>..\Build</BaseOutputPath>
+	</PropertyGroup>
+</Project>

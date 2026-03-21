@@ -10,4 +10,5 @@ internal static class Managed
 	internal static Assembly This => Assembly.GetExecutingAssembly();
 	internal static Assembly Engine => AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault( asm => asm.GetName().Name.Contains( "Engine" ) );
 	internal static Assembly Access => AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault( asm => asm.GetName().Name.Contains( "Access" ) );
+	internal static Assembly Compiling => AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault( asm => asm.GetName().Name.Contains( "Compiling" ) );
 }

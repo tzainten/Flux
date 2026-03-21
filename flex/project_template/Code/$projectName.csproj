@@ -1,21 +1,4 @@
-<Project>
-
-	<PropertyGroup>
-		<BaseIntermediateOutputPath>..\Intermediate</BaseIntermediateOutputPath>
-	</PropertyGroup>
-
-	<Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
-
-	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
-		<RootNamespace>${projectName}</RootNamespace>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<BaseOutputPath>..\Build</BaseOutputPath>
-	</PropertyGroup>
-
-	<Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
-
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 	<ItemGroup>
 		<Using Include="Sandbox.Internal.GlobalGameNamespace" Static="true" />
 		<Using Include="Microsoft.AspNetCore.Components" />
@@ -41,6 +24,11 @@
 
 	<ItemGroup>
 		<ProjectReference Include="${sbox}addons/base/code/Base Library.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="..\ThirdParty\**\*.cs" />
+		<Content Include="..\ThirdParty\**\*.razor" />
 	</ItemGroup>
 
 </Project>

@@ -1,13 +1,8 @@
 ﻿using BepInSbox;
 using BepInSbox.Core.Sbox;
-using BepInSbox.Logging;
 using HarmonyLib;
 using Sandbox;
-using Sandbox.Engine;
-using Sandbox.Services;
-using System.Collections.Concurrent;
 using System.Reflection;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Flux;
@@ -23,11 +18,17 @@ public class Flux : BaseSandboxPlugin
 
 	public Dictionary<string, List<FluxProject>> Projects = new();
 
-	public Package Package;
+	public string CompilerName;
 
 	public struct FluxProject
 	{
 		public string Package { get; set; }
+
+		[JsonIgnore]
+		public string Name { get; set; }
+
+		[JsonIgnore]
+		public string RootPath { get; set; }
 
 		[JsonIgnore]
 		public string CodePath { get; set; }
@@ -42,10 +43,7 @@ public class Flux : BaseSandboxPlugin
 		Root = Path.GetDirectoryName( Managed.This.Location );
 		SandboxRoot = Path.GetFullPath( Path.Combine( Root, @"..\..\" ) );
 
-		var compileGroupType = typeof( CompileGroup );
-		PatchCompileGroupConstructor( compileGroupType );
-		PatchPackageSetter();
-
+		RunHarmonyPatches();
 		GatherAllProjects();
 		InjectCommands();
 	}
@@ -68,6 +66,8 @@ public class Flux : BaseSandboxPlugin
 			var json = Json.ParseToJsonObject( File.ReadAllText( fluxFile ) );
 
 			FluxProject project = Json.Deserialize<FluxProject>( File.ReadAllText( fluxFile ) );
+			project.Name = Path.GetFileName( Path.GetDirectoryName( dir ) );
+			project.RootPath = dir;
 			project.CodePath = Path.Combine( dir, "Code" );
 			AddProject( project );
 		}
@@ -89,7 +89,9 @@ public class Flux : BaseSandboxPlugin
 		Directory.CreateDirectory( folder );
 
 		FluxProject project = new();
+		project.Name = projectName;
 		project.Package = package;
+		project.RootPath = folder;
 		project.CodePath = Path.Combine( folder, "Code" );
 
 		CopyDirectory( projectName, package, Path.GetFullPath( Path.Combine( Root, @"..\flex\project_template" ) ), folder );
@@ -124,67 +126,74 @@ public class Flux : BaseSandboxPlugin
 		Projects[project.Package].Add( project );
 	}
 
-	private void PatchCompileGroupConstructor( Type compileGroupType )
+	private void RunHarmonyPatches()
 	{
-		var ctors = compileGroupType.GetConstructors( BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic );
+		var codeArchiveType = Managed.Compiling.GetType( "Sandbox.CodeArchive" );
+		var deserialize = codeArchiveType.GetMethod( "Deserialize", BindingFlags.Instance | BindingFlags.NonPublic );
 
-		foreach ( var ctor in ctors )
+		var codeArchive_deserialize_postfix = new HarmonyMethod( typeof( Flux )
+				.GetMethod( nameof( CodeArchive_Deserialize_Postfix ), BindingFlags.Static | BindingFlags.NonPublic ) );
+
+		HarmonyInstance.Patch( deserialize, postfix: codeArchive_deserialize_postfix );
+
+		var compilerType = typeof( Compiler );
+		var updateFromArchive = compilerType.GetMethod( "UpdateFromArchive", BindingFlags.Instance | BindingFlags.Public );
+
+		var compiler_updateFromArchive_postfix = new HarmonyMethod( typeof( Flux )
+				.GetMethod( nameof( Compiler_UpdateFromArchive_Postfix ), BindingFlags.Static | BindingFlags.NonPublic ) );
+
+		HarmonyInstance.Patch( updateFromArchive, postfix: compiler_updateFromArchive_postfix );
+	}
+
+	[HarmonyPostfix]
+	private static void CodeArchive_Deserialize_Postfix( object __instance, byte[] data )
+	{
+		var codeArchive = (CodeArchive)__instance;
+		if ( !Instance.Projects.ContainsKey( codeArchive.CompilerName ) )
+			return;
+
+		Instance.CompilerName = codeArchive.CompilerName;
+
+		var files = codeArchive.GetFiles();
+		foreach ( var project in Instance.Projects[Instance.CompilerName] )
 		{
-			var postfix = new HarmonyMethod( typeof( Flux )
-				.GetMethod( nameof( CompileGroup_Constructor ), BindingFlags.Static | BindingFlags.NonPublic ) );
+			var outputPath = Path.Combine( project.RootPath, "ThirdParty", Instance.CompilerName );
 
-			HarmonyInstance.Patch( ctor, postfix: postfix );
+			if ( Directory.Exists( outputPath ) )
+				Directory.Delete( outputPath, true );
+
+			foreach ( var (path, content) in files )
+			{
+				var filePath = Path.Combine( outputPath, path );
+				Directory.CreateDirectory( Path.GetDirectoryName( filePath ) );
+				File.WriteAllText( filePath, content );
+			}
 		}
 	}
 
 	[HarmonyPostfix]
-	private static void CompileGroup_Constructor( object __instance, string name )
+	private static void Compiler_UpdateFromArchive_Postfix( object __instance, CodeArchive a )
 	{
-		if ( Instance.Package == null )
+		if ( string.IsNullOrEmpty( Instance.CompilerName ) )
 			return;
 
-		var fullIdent = Instance.Package.FullIdent;
-		if ( Instance.Projects.ContainsKey( fullIdent ) )
+		if ( Instance.Projects.ContainsKey( Instance.CompilerName ) )
 		{
-			var compileGroup = (CompileGroup)__instance;
-			foreach ( var project in Instance.Projects[fullIdent] )
+			var compileGroup = ((Compiler)__instance).Group;
+			foreach ( var project in Instance.Projects[Instance.CompilerName] )
 			{
-				var compiler = compileGroup.GetOrCreateCompiler( $"flux.{fullIdent}" );
+				var compiler = compileGroup.GetOrCreateCompiler( $"flux.{Instance.CompilerName}.{project.Name.ToLower()}" );
 
 				compiler.GeneratedCode.AppendLine( $"global using Microsoft.AspNetCore.Components;" );
 				compiler.GeneratedCode.AppendLine( $"global using Microsoft.AspNetCore.Components.Rendering;" );
 				compiler.GeneratedCode.AppendLine( $"global using static Sandbox.Internal.GlobalGameNamespace;" );
 
-				compiler.AddReference( $"package.{fullIdent}" );
+				compiler.AddReference( $"package.{Instance.CompilerName}" );
 				compiler.AddSourcePath( project.CodePath );
 				compiler.MarkForRecompile();
 			}
 		}
 
-		Instance.Package = null;
-	}
-
-	private void PatchPackageSetter()
-	{
-		var activePackageType = Managed.Engine.GetType( "Sandbox.PackageManager+ActivePackage" );
-		var packageProperty = activePackageType.GetProperty( "Package",
-			BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic );
-		var packageSetter = packageProperty.SetMethod;
-
-		var postfix = new HarmonyMethod( typeof( Flux )
-			.GetMethod( nameof( PackageSetterPostfix ), BindingFlags.Static | BindingFlags.NonPublic ) );
-
-		HarmonyInstance.Patch( packageSetter, postfix: postfix );
-	}
-
-	[HarmonyPostfix]
-	private static void PackageSetterPostfix( object __instance, Package value )
-	{
-		Instance.Package = value;
-	}
-
-	protected override void OnUpdate()
-	{
-		base.OnUpdate();
+		Instance.CompilerName = string.Empty;
 	}
 }
