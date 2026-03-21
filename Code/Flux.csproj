@@ -1,0 +1,137 @@
+﻿<Project>
+
+	<PropertyGroup>
+		<BaseIntermediateOutputPath>..\Intermediate</BaseIntermediateOutputPath>
+	</PropertyGroup>
+
+	<Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+	<PropertyGroup>
+		<Latest>$(SolutionDir)\Build\$(Configuration)\$(TargetFramework)\Latest</Latest>
+		<VersionPrefix>1.0.1</VersionPrefix>
+		<TargetFramework>net10.0</TargetFramework>
+		<RootNamespace>Flux</RootNamespace>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<BaseOutputPath>..\Build</BaseOutputPath>
+	</PropertyGroup>
+
+	<Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+	  <Exec Command="copy &quot;$(SolutionDir)\Build\$(Configuration)\$(TargetFramework)\$(TargetFileName)&quot; &quot;$(FACEPUNCH_ENGINE)\BepInSbox\plugins\&quot;" />
+	</Target>
+
+	<Target Name="CleanBuildOutput" AfterTargets="Build">
+	  <RemoveDir Directories="$(Latest)" />
+	</Target>
+
+	<Target Name="CopyFlex" AfterTargets="Build">
+	  <ItemGroup>
+		<FilesToCopy Include="$(SolutionDir)\flex\**\*" />
+	  </ItemGroup>
+	  <Copy 
+		SourceFiles="@(FilesToCopy)" 
+		DestinationFiles="@(FilesToCopy->'$(Latest)\BepInSbox\flex\%(RecursiveDir)%(Filename)%(Extension)')" 
+	  />
+	</Target>
+
+	<Target Name="CopyMiscFilesToOutputDir" AfterTargets="Build">
+		<Copy
+			SourceFiles="$(SolutionDir)\Build\$(Configuration)\$(TargetFramework)\$(TargetFileName);"
+			DestinationFolder="$(Latest)\BepInSbox\plugins" />
+	</Target>
+
+	<Target Name="ZipOutputPath" AfterTargets="Build">
+        <ZipDirectory
+            SourceDirectory="$(Latest)"
+            Overwrite="true"
+            DestinationFile="$(SolutionDir)\Releases\flex-$(VersionPrefix).zip" />
+    </Target>
+
+	<ItemGroup>
+	  <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.3.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Reference Include="0Harmony">
+	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\0Harmony.dll</HintPath>
+	  </Reference>
+	  <Reference Include="BepInSbox.Core">
+	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\BepInSbox.Core.dll</HintPath>
+	  </Reference>
+	  <Reference Include="BepInSbox.NET.Common">
+	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\BepInSbox.NET.Common.dll</HintPath>
+	  </Reference>
+	  <Reference Include="BepInSbox.NET.CoreCLR">
+	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\BepInSbox.NET.CoreCLR.dll</HintPath>
+	  </Reference>
+	  <Reference Include="BepInSbox.Preloader.Core">
+	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\BepInSbox.Preloader.Core.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Access">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Access.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.AppSystem">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.AppSystem.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Bind">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Bind.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.CodeUpgrader">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.CodeUpgrader.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Compiling">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Compiling.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Engine">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Engine.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Event">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Event.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Filesystem">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Filesystem.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.GameInstance">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.GameInstance.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Generator">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Generator.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Hotload">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Hotload.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Menu">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Menu.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Mounting">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Mounting.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.NetCore">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.NetCore.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Razor">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Razor.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Reflection">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Reflection.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Services">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Services.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.SolutionGenerator">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.SolutionGenerator.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.System">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.System.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Sandbox.Tools">
+	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Tools.dll</HintPath>
+	  </Reference>
+	  <Reference Include="SemanticVersioning">
+	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\SemanticVersioning.dll</HintPath>
+	  </Reference>
+	</ItemGroup>
+
+</Project>
