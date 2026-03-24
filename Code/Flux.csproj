@@ -30,27 +30,20 @@
 	  <ItemGroup>
 		<FilesToCopy Include="$(SolutionDir)\flex\**\*" />
 	  </ItemGroup>
-	  <Copy 
-		SourceFiles="@(FilesToCopy)" 
-		DestinationFiles="@(FilesToCopy->'$(Latest)\BepInSbox\flex\%(RecursiveDir)%(Filename)%(Extension)')" 
-	  />
+	  <Copy SourceFiles="@(FilesToCopy)" DestinationFiles="@(FilesToCopy->'$(Latest)\BepInSbox\flex\%(RecursiveDir)%(Filename)%(Extension)')" />
 	</Target>
 
 	<Target Name="CopyMiscFilesToOutputDir" AfterTargets="Build">
-		<Copy
-			SourceFiles="$(SolutionDir)\Build\$(Configuration)\$(TargetFramework)\$(TargetFileName);"
-			DestinationFolder="$(Latest)\BepInSbox\plugins" />
+		<Copy SourceFiles="$(SolutionDir)\Build\$(Configuration)\$(TargetFramework)\$(TargetFileName);" DestinationFolder="$(Latest)\BepInSbox\plugins" />
 	</Target>
 
 	<Target Name="ZipOutputPath" AfterTargets="Build">
-        <ZipDirectory
-            SourceDirectory="$(Latest)"
-            Overwrite="true"
-            DestinationFile="$(SolutionDir)\Releases\flex-$(VersionPrefix).zip" />
+        <ZipDirectory SourceDirectory="$(Latest)" Overwrite="true" DestinationFile="$(SolutionDir)\Releases\flex-$(VersionPrefix).zip" />
     </Target>
 
 	<ItemGroup>
 	  <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.3.0" />
+	  <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
 	</ItemGroup>
 
 	<ItemGroup>

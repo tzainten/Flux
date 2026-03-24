@@ -1,4 +1,4 @@
-﻿using BepInSbox;
+using BepInSbox;
 using BepInSbox.Core.Sbox;
 using HarmonyLib;
 using Sandbox;
@@ -66,7 +66,7 @@ public class Flux : BaseSandboxPlugin
 			var json = Json.ParseToJsonObject( File.ReadAllText( fluxFile ) );
 
 			FluxProject project = Json.Deserialize<FluxProject>( File.ReadAllText( fluxFile ) );
-			project.Name = Path.GetFileName( Path.GetDirectoryName( dir ) );
+			project.Name = Path.GetFileName( dir );
 			project.RootPath = dir;
 			project.CodePath = Path.Combine( dir, "Code" );
 			AddProject( project );
