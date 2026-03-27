@@ -24,11 +24,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="${sbox}addons/base/code/Base Library.csproj" />
+		${thirdParty}
 	</ItemGroup>
-
-	<ItemGroup>
-		<Compile Include="..\ThirdParty\**\*.cs" />
-		<Content Include="..\ThirdParty\**\*.razor" />
-	</ItemGroup>
-
 </Project>

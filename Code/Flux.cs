@@ -3,6 +3,7 @@ using BepInSbox.Core.Sbox;
 using HarmonyLib;
 using Sandbox;
 using System.Reflection;
+using System.Text;
 using System.Text.Json.Serialization;
 
 namespace Flux;
@@ -19,20 +20,6 @@ public class Flux : BaseSandboxPlugin
 	public Dictionary<string, List<FluxProject>> Projects = new();
 
 	public string CompilerName;
-
-	public struct FluxProject
-	{
-		public string Package { get; set; }
-
-		[JsonIgnore]
-		public string Name { get; set; }
-
-		[JsonIgnore]
-		public string RootPath { get; set; }
-
-		[JsonIgnore]
-		public string CodePath { get; set; }
-	}
 
 	protected override void OnPluginLoad()
 	{
@@ -94,6 +81,7 @@ public class Flux : BaseSandboxPlugin
 		project.RootPath = folder;
 		project.CodePath = Path.Combine( folder, "Code" );
 
+		project.WriteSlnx();
 		CopyDirectory( projectName, package, Path.GetFullPath( Path.Combine( Root, @"..\flex\project_template" ) ), folder );
 
 		AddProject( project );
@@ -112,6 +100,7 @@ public class Flux : BaseSandboxPlugin
 			contents = contents.Replace( "${package}", package );
 			contents = contents.Replace( "${sbox}", Instance.SandboxRoot );
 			contents = contents.Replace( "${root}", Instance.Root );
+
 			File.WriteAllText( path, contents );
 		}
 
@@ -168,6 +157,10 @@ public class Flux : BaseSandboxPlugin
 				Directory.CreateDirectory( Path.GetDirectoryName( filePath ) );
 				File.WriteAllText( filePath, content );
 			}
+
+			File.WriteAllText( Path.Combine( outputPath, $"{codeArchive.CompilerName}.csproj" ), codeArchive.MakeCsProjFile() );
+			project.WriteSlnx();
+			project.WriteCsproj();
 		}
 	}
 

@@ -32,4 +32,40 @@ public static class CodeArchiveExtensions
 
 		return files;
 	}
+
+	public static string MakeCsProjFile( this CodeArchive archive )
+	{
+		var sb = new StringBuilder();
+
+		sb.AppendLine( "<Project Sdk=\"Microsoft.NET.Sdk.Razor\">" );
+
+		sb.AppendLine( "\t<PropertyGroup>" );
+		sb.AppendLine( $"\t\t<RootNamespace>{(string.IsNullOrEmpty( archive.Configuration.RootNamespace ) ? "Sandbox" : archive.Configuration.RootNamespace)}</RootNamespace>" );
+		sb.AppendLine( "\t</PropertyGroup>" );
+
+		sb.AppendLine( "\t<ItemGroup>" );
+		sb.AppendLine( "\t\t<Using Include=\"Sandbox.Internal.GlobalGameNamespace\" Static=\"true\" />" );
+		sb.AppendLine( "\t\t<Using Include=\"Microsoft.AspNetCore.Components\" />" );
+		sb.AppendLine( "\t\t<Using Include=\"Microsoft.AspNetCore.Components.Rendering\" />" );
+		sb.AppendLine( "\t</ItemGroup>" );
+
+		sb.AppendLine( "\t<ItemGroup>" );
+		sb.AppendLine( "\t\t<Analyzer Include=\"$(FACEPUNCH_ENGINE)\\bin\\managed\\Sandbox.CodeUpgrader.dll\"/>" );
+		sb.AppendLine( "\t\t<Analyzer Include=\"$(FACEPUNCH_ENGINE)\\bin\\managed\\Sandbox.Generator.dll\"/>" );
+		sb.AppendLine( "\t\t<Reference Include=\"$(FACEPUNCH_ENGINE)\\bin\\managed\\Sandbox.System.dll\"/>" );
+		sb.AppendLine( "\t\t<Reference Include=\"$(FACEPUNCH_ENGINE)\\bin\\managed\\Sandbox.Engine.dll\"/>" );
+		sb.AppendLine( "\t\t<Reference Include=\"$(FACEPUNCH_ENGINE)\\bin\\managed\\Sandbox.Filesystem.dll\"/>" );
+		sb.AppendLine( "\t\t<Reference Include=\"$(FACEPUNCH_ENGINE)\\bin\\managed\\Sandbox.Reflection.dll\"/>" );
+		sb.AppendLine( "\t\t<Reference Include=\"$(FACEPUNCH_ENGINE)\\bin\\managed\\Sandbox.Mounting.dll\"/>" );
+		sb.AppendLine( "\t\t<Reference Include=\"$(FACEPUNCH_ENGINE)\\bin\\managed\\Microsoft.AspNetCore.Components.dll\"/>" );
+		sb.AppendLine( "\t</ItemGroup>" );
+
+		sb.AppendLine( "\t<ItemGroup>" );
+		sb.AppendLine( "\t\t<ProjectReference Include=\"$(FACEPUNCH_ENGINE)\\addons/base/code/Base Library.csproj\" />" );
+		sb.AppendLine( "\t</ItemGroup>" );
+
+		sb.AppendLine( "</Project>" );
+
+		return sb.ToString();
+	}
 }
