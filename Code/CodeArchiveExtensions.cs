@@ -1,4 +1,4 @@
-﻿using Sandbox;
+using Sandbox;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
@@ -18,7 +18,7 @@ public static class CodeArchiveExtensions
 			if ( string.IsNullOrEmpty( path ) ) continue;
 
 			var text = syntaxTree.GetText()?.ToString();
-			if ( !string.IsNullOrEmpty( text ) )
+			if ( !string.IsNullOrEmpty( text ) && !path.Contains( "__compiler_extra" ) )
 			{
 				files.Add( (path, text) );
 			}
