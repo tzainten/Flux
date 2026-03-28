@@ -117,21 +117,8 @@ public class Flux : BaseSandboxPlugin
 
 	private void RunHarmonyPatches()
 	{
-		var codeArchiveType = Managed.Compiling.GetType( "Sandbox.CodeArchive" );
-		var deserialize = codeArchiveType.GetMethod( "Deserialize", BindingFlags.Instance | BindingFlags.NonPublic );
-
-		var codeArchive_deserialize_postfix = new HarmonyMethod( typeof( Flux )
-				.GetMethod( nameof( CodeArchive_Deserialize_Postfix ), BindingFlags.Static | BindingFlags.NonPublic ) );
-
-		HarmonyInstance.Patch( deserialize, postfix: codeArchive_deserialize_postfix );
-
-		var compilerType = typeof( Compiler );
-		var updateFromArchive = compilerType.GetMethod( "UpdateFromArchive", BindingFlags.Instance | BindingFlags.Public );
-
-		var compiler_updateFromArchive_postfix = new HarmonyMethod( typeof( Flux )
-				.GetMethod( nameof( Compiler_UpdateFromArchive_Postfix ), BindingFlags.Static | BindingFlags.NonPublic ) );
-
-		HarmonyInstance.Patch( updateFromArchive, postfix: compiler_updateFromArchive_postfix );
+		Managed.Compiling.Postfix( "Sandbox.CodeArchive", "Deserialize", nameof( CodeArchive_Deserialize_Postfix ) );
+		Managed.Compiling.Postfix( "Sandbox.Compiler", "UpdateFromArchive", nameof( Compiler_UpdateFromArchive_Postfix ) );
 	}
 
 	[HarmonyPostfix]
