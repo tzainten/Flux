@@ -7,6 +7,9 @@ namespace Flux.Reflection;
 
 internal static class PackageManager
 {
-	private static Type Type => Managed.Engine.GetType( "Sandbox.PackageManager" );
-	public static IEnumerable<object> ActivePackages => Type.GetProperty( "ActivePackages", BindingFlags.Static | BindingFlags.Public ).GetValue( null ) as IEnumerable<object>;
+	private static Type Type = Managed.Engine.GetType( "Sandbox.PackageManager" );
+
+	private static PropertyInfo __packageManager_ActivePackages_PropertyInfo = Type.GetProperty( "ActivePackages", BindingFlags.Static | BindingFlags.Public );
+
+	public static IEnumerable<object> ActivePackages => __packageManager_ActivePackages_PropertyInfo.GetValue( null ) as IEnumerable<object>;
 }

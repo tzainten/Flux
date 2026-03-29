@@ -9,6 +9,11 @@ namespace Flux;
 
 public partial class Flux
 {
+	private static Package __activePackage_Package;
+
+	private static PropertyInfo __activePackage_Package_PropertyInfo = Managed.Engine.GetType( "Sandbox.PackageManager+ActivePackage" ).GetProperty( "Package", BindingFlags.Instance | BindingFlags.Public );
+	private static PropertyInfo __activePackage_AssemblyFileSystem_PropertyInfo = Managed.Engine.GetType( "Sandbox.PackageManager+ActivePackage" ).GetProperty( "AssemblyFileSystem", BindingFlags.Instance | BindingFlags.Public );
+
 	private void RunHarmonyPatches()
 	{
 		Managed.Compiling.Postfix( "Sandbox.CodeArchive", "Deserialize", nameof( CodeArchive_Deserialize_Postfix ) );
@@ -17,6 +22,14 @@ public partial class Flux
 
 		Managed.GameInstance.Postfix( "Sandbox.GameInstanceDll", "CloseGame", nameof( GameInstanceDll_CloseGame_Postfix ) );
 		Managed.GameInstance.Postfix( "Sandbox.GameInstanceDll", "FinishLoadingAssemblies", nameof( GameInstanceDll_FinishLoadingAssemblies_Postfix ) );
+
+		Managed.Engine.Postfix( "Sandbox.PackageManager+ActivePackage", "CompileCodeArchive", nameof( PackageManager_ActivePackage_CompileCodeArchive_Postfix ) );
+	}
+
+	private static void PackageManager_ActivePackage_CompileCodeArchive_Postfix( object __instance )
+	{
+		var package = (Package)__activePackage_Package_PropertyInfo.GetValue( __instance );
+		__activePackage_Package = package;
 	}
 
 	private static void GameInstanceDll_FinishLoadingAssemblies_Postfix()
@@ -26,17 +39,14 @@ public partial class Flux
 
 		var activePackages = PackageManager.ActivePackages.Where( ap =>
 		{
-			var package = (Package)ap.GetType().GetProperty( "Package", BindingFlags.Instance | BindingFlags.Public ).GetValue( ap );
+			var package = (Package)__activePackage_Package_PropertyInfo.GetValue( ap );
 			return Instance._pendingHotloads.ContainsKey( package.FullIdent );
 		} );
 
 		foreach ( var activePackage in activePackages )
 		{
-			var package = (Package)activePackage.GetType().GetProperty( "Package", BindingFlags.Instance | BindingFlags.Public ).GetValue( activePackage );
-
-			var assemblyFileSystem = activePackage.GetType()
-				.GetProperty( "AssemblyFileSystem", BindingFlags.Instance | BindingFlags.Public )
-				.GetValue( activePackage ) as BaseFileSystem;
+			var package = (Package)__activePackage_Package_PropertyInfo.GetValue( activePackage );
+			var assemblyFileSystem = __activePackage_AssemblyFileSystem_PropertyInfo.GetValue( activePackage ) as BaseFileSystem;
 
 			var dllFile = assemblyFileSystem?.FindFile( "", "*.dll", true )
 				.FirstOrDefault( f => f.Contains( package.FullIdent ) );
@@ -72,6 +82,12 @@ public partial class Flux
 		foreach ( var project in Instance.Projects[archive.CompilerName] )
 		{
 			var outputPath = Path.Combine( project.RootPath, "ThirdParty", archive.CompilerName );
+			var revisionPath = Path.Combine( outputPath, "REVISION" );
+
+			var shouldExtract = !File.Exists( revisionPath ) || long.Parse( File.ReadAllText( revisionPath ) ) != __activePackage_Package.Revision.VersionId;
+
+			if ( !shouldExtract )
+				continue;
 
 			if ( Directory.Exists( outputPath ) )
 				Directory.Delete( outputPath, true );
@@ -87,9 +103,13 @@ public partial class Flux
 			if ( !File.Exists( csProjPath ) )
 				File.WriteAllText( csProjPath, archive.MakeCsProjFile() );
 
+			File.WriteAllText( revisionPath, __activePackage_Package.Revision.VersionId.ToString() );
+
 			project.WriteSlnx();
 			project.WriteCsproj();
 		}
+
+		__activePackage_Package = null;
 	}
 
 	private static void Compiler_UpdateFromArchive_Postfix( object __instance, CodeArchive a )
