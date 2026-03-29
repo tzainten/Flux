@@ -1,13 +1,70 @@
+using Microsoft.CodeAnalysis.CSharp;
 using Sandbox;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using static Sandbox.CodeArchive;
 
 namespace Flux;
 
 public static class CodeArchiveExtensions
 {
+	public static void InjectProject( this CodeArchive archive, FluxProject project )
+	{
+		if ( archive.CompilerName != project.Package )
+			throw new NotSupportedException( $"Project {project.Name} cannot be injected into package {archive.CompilerName}!" );
+
+		foreach ( var file in project.GetFiles() )
+		{
+			var localPath = Path.GetRelativePath( project.CodePath, file );
+			var content = File.ReadAllText( file );
+			archive.AddFile( file, localPath, content );
+		}
+
+		for ( int i = 0; i < archive.SyntaxTrees.Count; i++ )
+		{
+			var tree = archive.SyntaxTrees[i];
+			var filePath = tree.FilePath;
+
+			var modFilePath = Path.Combine( project.RootPath, "ThirdParty", archive.CompilerName, filePath );
+			if ( !File.Exists( modFilePath ) )
+				continue;
+
+			var newContent = File.ReadAllText( modFilePath );
+			var newTree = CSharpSyntaxTree.ParseText(
+				newContent,
+				path: filePath,
+				encoding: Encoding.UTF8,
+				options: archive.Configuration.GetParseOptions()
+			);
+			archive.SyntaxTrees[i] = newTree;
+		}
+	}
+
+	public static void AddFile( this CodeArchive archive, string physicalPath, string localPath, string content )
+	{
+		if ( localPath.Contains( "Assembly.cs" ) )
+			return;
+
+		archive.FileMap[physicalPath] = localPath;
+
+		if ( Path.GetExtension( localPath ).Equals( ".cs", StringComparison.OrdinalIgnoreCase ) )
+		{
+			archive.SyntaxTrees.RemoveAll( t => string.Equals( t.FilePath, localPath, StringComparison.OrdinalIgnoreCase ) );
+
+			var parseOptions = archive.Configuration.GetParseOptions()
+				?? CSharpParseOptions.Default.WithLanguageVersion( LanguageVersion.CSharp14 );
+			var syntaxTree = CSharpSyntaxTree.ParseText( content, path: localPath, encoding: Encoding.UTF8, options: parseOptions );
+			archive.SyntaxTrees.Add( syntaxTree );
+		}
+		else
+		{
+			archive.AdditionalFiles.RemoveAll( f => string.Equals( f.LocalPath, localPath, StringComparison.OrdinalIgnoreCase ) );
+			archive.AdditionalFiles.Add( new AdditionalFile( content, localPath ) );
+		}
+	}
+
 	public static List<(string Path, string Content)> GetFiles( this CodeArchive archive )
 	{
 		var files = new List<(string Path, string Content)>();

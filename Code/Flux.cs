@@ -1,15 +1,17 @@
 using BepInSbox;
 using BepInSbox.Core.Sbox;
+using Flux.Reflection;
 using HarmonyLib;
 using Sandbox;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
+using static Editor.EditorUtility;
 
 namespace Flux;
 
 [BepInPlugin( "Flux", "tzainten.Flux", "1.0.0" )]
-public class Flux : BaseSandboxPlugin
+public partial class Flux : BaseSandboxPlugin
 {
 	public static Flux Instance;
 
@@ -19,7 +21,9 @@ public class Flux : BaseSandboxPlugin
 
 	public Dictionary<string, List<FluxProject>> Projects = new();
 
-	public string CompilerName;
+	private bool _isCompiling = false;
+	private Dictionary<string, byte[]> _pendingHotloads = new();
+	private Dictionary<string, DateTime> _hotloadTimestamps = new();
 
 	protected override void OnPluginLoad()
 	{
@@ -33,6 +37,17 @@ public class Flux : BaseSandboxPlugin
 		RunHarmonyPatches();
 		GatherAllProjects();
 		InjectCommands();
+	}
+
+	protected override void OnUpdate()
+	{
+		base.OnUpdate();
+
+		if ( !FluxProject.DirtyProjects.Any() || _isCompiling )
+			return;
+
+		_isCompiling = true;
+		_ = CompileDirtyProjects();
 	}
 
 	void InjectCommands()
@@ -115,65 +130,22 @@ public class Flux : BaseSandboxPlugin
 		Projects[project.Package].Add( project );
 	}
 
-	private void RunHarmonyPatches()
+	private async Task CompileDirtyProjects()
 	{
-		Managed.Compiling.Postfix( "Sandbox.CodeArchive", "Deserialize", nameof( CodeArchive_Deserialize_Postfix ) );
-		Managed.Compiling.Postfix( "Sandbox.Compiler", "UpdateFromArchive", nameof( Compiler_UpdateFromArchive_Postfix ) );
-	}
-
-	[HarmonyPostfix]
-	private static void CodeArchive_Deserialize_Postfix( object __instance, byte[] data )
-	{
-		var codeArchive = (CodeArchive)__instance;
-		if ( !Instance.Projects.ContainsKey( codeArchive.CompilerName ) )
-			return;
-
-		Instance.CompilerName = codeArchive.CompilerName;
-
-		var files = codeArchive.GetFiles();
-		foreach ( var project in Instance.Projects[Instance.CompilerName] )
+		foreach ( var project in FluxProject.DirtyProjects )
 		{
-			var outputPath = Path.Combine( project.RootPath, "ThirdParty", Instance.CompilerName );
+			Instance.Logger.LogInfo( $"Hotloading {project.Package}" );
+			_hotloadTimestamps.Add( project.Package, DateTime.Now );
 
-			if ( Directory.Exists( outputPath ) )
-				Directory.Delete( outputPath, true );
+			await project.CompileGroup.BuildAsync();
 
-			foreach ( var (path, content) in files )
-			{
-				var filePath = Path.Combine( outputPath, path );
-				Directory.CreateDirectory( Path.GetDirectoryName( filePath ) );
-				File.WriteAllText( filePath, content );
-			}
+			if ( !project.Compiler.Output.Successful )
+				continue;
 
-			File.WriteAllText( Path.Combine( outputPath, $"{codeArchive.CompilerName}.csproj" ), codeArchive.MakeCsProjFile() );
-			project.WriteSlnx();
-			project.WriteCsproj();
-		}
-	}
-
-	[HarmonyPostfix]
-	private static void Compiler_UpdateFromArchive_Postfix( object __instance, CodeArchive a )
-	{
-		if ( string.IsNullOrEmpty( Instance.CompilerName ) )
-			return;
-
-		if ( Instance.Projects.ContainsKey( Instance.CompilerName ) )
-		{
-			var compileGroup = ((Compiler)__instance).Group;
-			foreach ( var project in Instance.Projects[Instance.CompilerName] )
-			{
-				var compiler = compileGroup.GetOrCreateCompiler( $"flux.{Instance.CompilerName}.{project.Name.ToLower()}" );
-
-				compiler.GeneratedCode.AppendLine( $"global using Microsoft.AspNetCore.Components;" );
-				compiler.GeneratedCode.AppendLine( $"global using Microsoft.AspNetCore.Components.Rendering;" );
-				compiler.GeneratedCode.AppendLine( $"global using static Sandbox.Internal.GlobalGameNamespace;" );
-
-				compiler.AddReference( $"package.{Instance.CompilerName}" );
-				compiler.AddSourcePath( project.CodePath );
-				compiler.MarkForRecompile();
-			}
+			_pendingHotloads.Add( project.Package, project.Compiler.Output.AssemblyData );
 		}
 
-		Instance.CompilerName = string.Empty;
+		FluxProject.DirtyProjects.Clear();
+		_isCompiling = false;
 	}
 }

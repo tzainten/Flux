@@ -1,14 +1,23 @@
-﻿using Sandbox;
+﻿using HarmonyLib;
+using Sandbox;
+using Sandbox.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Serialization;
+using static Editor.EditorUtility;
 using static Sandbox.Connection;
 
 namespace Flux;
 
-public struct FluxProject
+public class FluxProject
 {
+	public static List<FluxProject> All = new();
+
+	public static List<FluxProject> ActiveProjects = new();
+
+	public static List<FluxProject> DirtyProjects = new();
+
 	public string Package { get; set; }
 
 	[JsonIgnore]
@@ -19,6 +28,85 @@ public struct FluxProject
 
 	[JsonIgnore]
 	public string CodePath { get; set; }
+
+	[JsonIgnore]
+	public bool Active
+	{
+		get;
+		set
+		{
+			field = value;
+			OnActiveChanged( value );
+		}
+	}
+
+	[JsonIgnore]
+	public FileSystemWatcher Watcher;
+
+	[JsonIgnore]
+	public CompileGroup CompileGroup => Compiler.Group;
+
+	[JsonIgnore]
+	public Compiler Compiler;
+
+	public FluxProject()
+	{
+		All.Add( this );
+	}
+
+	private Timer _watcherDebounce;
+
+	private void OnActiveChanged( bool newActive )
+	{
+		if ( newActive && !ActiveProjects.Contains( this ) )
+		{
+			ActiveProjects.Add( this );
+
+			Watcher = new FileSystemWatcher( RootPath, "*.cs" )
+			{
+				IncludeSubdirectories = true,
+				NotifyFilter = NotifyFilters.LastWrite
+						 | NotifyFilters.FileName
+						 | NotifyFilters.DirectoryName,
+			};
+
+			void Hotload()
+			{
+				_watcherDebounce?.Dispose();
+				_watcherDebounce = new Timer( _ =>
+				{
+					DirtyProjects.Add( this );
+					Compiler.MarkForRecompile();
+				}, null, TimeSpan.FromMilliseconds( 300 ), Timeout.InfiniteTimeSpan );
+			}
+
+			Watcher.Changed += ( sender, e ) => { Hotload(); };
+			Watcher.Created += ( sender, e ) => { Hotload(); };
+			Watcher.Deleted += ( sender, e ) => { Hotload(); };
+			Watcher.Renamed += ( sender, e ) => { Hotload(); };
+
+			Watcher.EnableRaisingEvents = true;
+		}
+
+		if ( !newActive )
+		{
+			ActiveProjects.Remove( this );
+
+			Watcher.EnableRaisingEvents = false;
+			Watcher = null;
+		}
+	}
+
+	public List<string> GetFiles()
+	{
+		List<string> files = new List<string>();
+
+		var options = new EnumerationOptions { RecurseSubdirectories = true };
+		files.AddRange( Directory.GetFiles( CodePath, "*.cs", options ) );
+		files.AddRange( Directory.GetFiles( CodePath, "*.razor", options ) );
+
+		return files;
+	}
 
 	internal void WriteCsproj()
 	{
