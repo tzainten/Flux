@@ -1,0 +1,6 @@
+<Project>
+    <PropertyGroup>
+		<BaseIntermediateOutputPath>..\Intermediate</BaseIntermediateOutputPath>
+        <BaseOutputPath>..\Build</BaseOutputPath>
+	</PropertyGroup>
+</Project>
