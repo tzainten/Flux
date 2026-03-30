@@ -16,7 +16,7 @@ public class FluxProject
 
 	public static List<FluxProject> ActiveProjects = new();
 
-	public static List<FluxProject> DirtyProjects = new();
+	public static HashSet<FluxProject> DirtyProjects = new();
 
 	public string Package { get; set; }
 
@@ -70,13 +70,19 @@ public class FluxProject
 						 | NotifyFilters.DirectoryName,
 			};
 
+			Flux.Log.Info( $"{Name} has become active" );
+
 			void Hotload()
 			{
 				_watcherDebounce?.Dispose();
 				_watcherDebounce = new Timer( _ =>
 				{
+					if ( DirtyProjects.Contains( this ) )
+						return;
+
 					DirtyProjects.Add( this );
 					Compiler.MarkForRecompile();
+					Flux.Log.Info( $"{Name} marked for recompile" );
 				}, null, TimeSpan.FromMilliseconds( 300 ), Timeout.InfiniteTimeSpan );
 			}
 
@@ -92,8 +98,13 @@ public class FluxProject
 		{
 			ActiveProjects.Remove( this );
 
-			Watcher.EnableRaisingEvents = false;
-			Watcher = null;
+			Flux.Log.Info( $"{Name} is no longer active" );
+
+			if ( Watcher != null )
+			{
+				Watcher.EnableRaisingEvents = false;
+				Watcher = null;
+			}
 		}
 	}
 

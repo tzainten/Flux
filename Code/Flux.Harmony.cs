@@ -17,19 +17,27 @@ public partial class Flux
 	private void RunHarmonyPatches()
 	{
 		Managed.Compiling.Postfix( "Sandbox.CodeArchive", "Deserialize", nameof( CodeArchive_Deserialize_Postfix ) );
-		Managed.Compiling.Postfix( "Sandbox.Compiler", "UpdateFromArchive", nameof( Compiler_UpdateFromArchive_Postfix ) );
 		Managed.Compiling.Postfix( "Sandbox.Compiler", "BuildArchive", nameof( Compiler_BuildArchive_Postfix ) );
 
 		Managed.GameInstance.Postfix( "Sandbox.GameInstanceDll", "CloseGame", nameof( GameInstanceDll_CloseGame_Postfix ) );
 		Managed.GameInstance.Postfix( "Sandbox.GameInstanceDll", "FinishLoadingAssemblies", nameof( GameInstanceDll_FinishLoadingAssemblies_Postfix ) );
 
 		Managed.Engine.Postfix( "Sandbox.PackageManager+ActivePackage", "CompileCodeArchive", nameof( PackageManager_ActivePackage_CompileCodeArchive_Postfix ) );
+		Managed.Engine.Prefix( "Sandbox.Scene", "InitSystems", nameof( Scene_InitSystems_Prefix ) );
+	}
+
+	private static void Scene_InitSystems_Prefix( object __instance )
+	{
+		var scene = (Scene)__instance;
+
+		Game.TypeLibrary.GetType().GetMethod( "AddAssembly", BindingFlags.Instance | BindingFlags.NonPublic ).Invoke( Game.TypeLibrary, [Assembly.GetExecutingAssembly(), true] );
 	}
 
 	private static void PackageManager_ActivePackage_CompileCodeArchive_Postfix( object __instance )
 	{
 		var package = (Package)__activePackage_Package_PropertyInfo.GetValue( __instance );
 		__activePackage_Package = package;
+		Log.Info( $"'{package.FullIdent}' is the ActivePackage" );
 	}
 
 	private static void GameInstanceDll_FinishLoadingAssemblies_Postfix()
@@ -57,7 +65,7 @@ public partial class Flux
 			GameInstanceDll.LoadAssemblyFromPackage( activePackage, dllFile, Instance._pendingHotloads[package.FullIdent] );
 
 			var start = Instance._hotloadTimestamps[package.FullIdent];
-			Instance.Logger.LogInfo( $"Hotloaded {package.FullIdent} in {(DateTime.Now - start).TotalSeconds.ToString( "N2" )}s" );
+			Log.Info( $"Hotloaded {package.FullIdent} in {(DateTime.Now - start).TotalSeconds.ToString( "N2" )}s" );
 		}
 
 		Instance._pendingHotloads.Clear();
@@ -66,7 +74,7 @@ public partial class Flux
 
 	private static void GameInstanceDll_CloseGame_Postfix( object __instance )
 	{
-		foreach ( var project in FluxProject.All )
+		foreach ( var project in FluxProject.ActiveProjects.ToList() )
 		{
 			project.Active = false;
 		}
@@ -75,8 +83,10 @@ public partial class Flux
 	private static void CodeArchive_Deserialize_Postfix( object __instance, byte[] data )
 	{
 		var archive = (CodeArchive)__instance;
-		if ( !Instance.Projects.ContainsKey( archive.CompilerName ) )
+		if ( __activePackage_Package == null || !Instance.Projects.ContainsKey( archive.CompilerName ) )
 			return;
+
+		Log.Info( $"Attempting extraction of '{archive.CompilerName}'" );
 
 		var files = archive.GetFiles();
 		foreach ( var project in Instance.Projects[archive.CompilerName] )
@@ -112,31 +122,20 @@ public partial class Flux
 		__activePackage_Package = null;
 	}
 
-	private static void Compiler_UpdateFromArchive_Postfix( object __instance, CodeArchive a )
-	{
-		if ( string.IsNullOrEmpty( a.CompilerName ) )
-			return;
-
-		if ( !Instance.Projects.ContainsKey( a.CompilerName ) )
-			return;
-
-		var compiler = (Compiler)__instance;
-		foreach ( var project in Instance.Projects[a.CompilerName] )
-		{
-			compiler.AddSourcePath( project.CodePath );
-			project.Active = true;
-		}
-	}
-
 	private static void Compiler_BuildArchive_Postfix( object __instance, CodeArchive __result )
 	{
 		var compiler = (Compiler)__instance;
 		if ( !Instance.Projects.ContainsKey( compiler.Name ) )
 			return;
 
+		Log.Info( $"Injecting code into '{compiler.Name}'" );
+
 		foreach ( var project in Instance.Projects[compiler.Name] )
 		{
 			__result.InjectProject( project );
+			compiler.AddSourcePath( project.CodePath );
+			compiler.MarkForRecompile();
+			project.Active = true;
 			project.Compiler = compiler;
 		}
 	}

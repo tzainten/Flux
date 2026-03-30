@@ -3,6 +3,7 @@ using BepInSbox.Core.Sbox;
 using Flux.Reflection;
 using HarmonyLib;
 using Sandbox;
+using Sandbox.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -11,9 +12,38 @@ using static Editor.EditorUtility;
 namespace Flux;
 
 [BepInPlugin( "Flux", "tzainten.Flux", "1.0.0" )]
-public partial class Flux : BaseSandboxPlugin
+public class FluxBootstrap : BaseSandboxPlugin
+{
+	protected override void OnPluginLoad()
+	{
+		base.OnPluginLoad();
+
+		Flux.HarmonyInstance = HarmonyInstance;
+		Flux.Instance = new();
+		Flux.Instance.OnPluginLoad();
+	}
+}
+
+public class FluxSystem : GameObjectSystem<FluxSystem>
+{
+	public FluxSystem( Scene scene ) : base( scene )
+	{
+		Listen( Stage.FinishUpdate, 0, FinishUpdate, "FluxSystem::FinishUpdate" );
+	}
+
+	void FinishUpdate()
+	{
+		Flux.Instance.Tick();
+	}
+}
+
+public partial class Flux
 {
 	public static Flux Instance;
+
+	public static Logger Log = new( "Flux" );
+
+	public static Harmony HarmonyInstance;
 
 	public string Root;
 
@@ -25,10 +55,8 @@ public partial class Flux : BaseSandboxPlugin
 	private Dictionary<string, byte[]> _pendingHotloads = new();
 	private Dictionary<string, DateTime> _hotloadTimestamps = new();
 
-	protected override void OnPluginLoad()
+	public void OnPluginLoad()
 	{
-		base.OnPluginLoad();
-
 		Instance = this;
 
 		Root = Path.GetDirectoryName( Managed.This.Location );
@@ -39,10 +67,8 @@ public partial class Flux : BaseSandboxPlugin
 		InjectCommands();
 	}
 
-	protected override void OnUpdate()
+	public void Tick()
 	{
-		base.OnUpdate();
-
 		if ( !FluxProject.DirtyProjects.Any() || _isCompiling )
 			return;
 
@@ -134,7 +160,7 @@ public partial class Flux : BaseSandboxPlugin
 	{
 		foreach ( var project in FluxProject.DirtyProjects )
 		{
-			Instance.Logger.LogInfo( $"Hotloading {project.Package}" );
+			Log.Info( $"Hotloading {project.Package}" );
 			_hotloadTimestamps.Add( project.Package, DateTime.Now );
 
 			await project.CompileGroup.BuildAsync();
@@ -142,7 +168,7 @@ public partial class Flux : BaseSandboxPlugin
 			if ( !project.Compiler.Output.Successful )
 				continue;
 
-			_pendingHotloads.Add( project.Package, project.Compiler.Output.AssemblyData );
+			_pendingHotloads[project.Package] = project.Compiler.Output.AssemblyData;
 		}
 
 		FluxProject.DirtyProjects.Clear();
