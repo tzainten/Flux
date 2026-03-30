@@ -40,6 +40,19 @@ public static class CodeArchiveExtensions
 			);
 			archive.SyntaxTrees[i] = newTree;
 		}
+
+		for ( int i = 0; i < archive.AdditionalFiles.Count; i++ )
+		{
+			var file = archive.AdditionalFiles[i];
+			var filePath = file.LocalPath;
+
+			var modFilePath = Path.Combine( project.RootPath, "ThirdParty", archive.CompilerName, filePath );
+			if ( !File.Exists( modFilePath ) )
+				continue;
+
+			var newContent = File.ReadAllText( modFilePath );
+			archive.AdditionalFiles[i] = new CodeArchive.AdditionalFile( newContent, filePath );
+		}
 	}
 
 	public static void AddFile( this CodeArchive archive, string physicalPath, string localPath, string content )
