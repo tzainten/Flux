@@ -1,3 +1,9 @@
 <Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
   <Project Path="Code/Flux.csproj" />
+  <Project Path="Doorstop/Doorstop.vcxproj" Id="0361cb8b-d250-483f-bd7e-1beedf68fe40" />
 </Solution>

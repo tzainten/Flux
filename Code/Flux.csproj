@@ -7,11 +7,8 @@
 		<RootNamespace>Flux</RootNamespace>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>disable</Nullable>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 	</PropertyGroup>
-
-	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-	  <Exec Command="copy &quot;$(SolutionDir)\Build\$(Configuration)\$(TargetFramework)\$(TargetFileName)&quot; &quot;$(FACEPUNCH_ENGINE)\BepInSbox\plugins\&quot;" />
-	</Target>
 
 	<Target Name="CleanBuildOutput" AfterTargets="Build">
 	  <RemoveDir Directories="$(Latest)" />
@@ -19,40 +16,36 @@
 
 	<Target Name="CopyFlex" AfterTargets="Build">
 	  <ItemGroup>
-		<FilesToCopy Include="$(SolutionDir)\flex\**\*" />
+		<FilesToCopy Include="$(SolutionDir)\Flux\**\*" />
 	  </ItemGroup>
-	  <Copy SourceFiles="@(FilesToCopy)" DestinationFiles="@(FilesToCopy->'$(Latest)\BepInSbox\flex\%(RecursiveDir)%(Filename)%(Extension)')" />
+	  <Copy SourceFiles="@(FilesToCopy)" DestinationFiles="@(FilesToCopy->'$(Latest)\Flux\Core\%(RecursiveDir)%(Filename)%(Extension)')" />
+	</Target>
+	
+	<Target Name="CopyDoorstop" AfterTargets="Build">
+	  <Copy SourceFiles="$(SolutionDir)\Build\x64\$(Configuration)\xinput1_4.dll;$(SolutionDir)\Build\x64\$(Configuration)\nethost.dll;" DestinationFolder="$(Latest)" />
 	</Target>
 
 	<Target Name="CopyMiscFilesToOutputDir" AfterTargets="Build">
-		<Copy SourceFiles="$(SolutionDir)\Build\$(Configuration)\$(TargetFramework)\$(TargetFileName);" DestinationFolder="$(Latest)\BepInSbox\plugins" />
+		<Copy SourceFiles="$(SolutionDir)\Build\$(Configuration)\$(TargetFramework)\$(TargetFileName);$(SolutionDir)\Build\$(Configuration)\$(TargetFramework)\0Harmony.dll" DestinationFolder="$(Latest)\Flux\Core" />
+		<MakeDir Directories="$(Latest)\Flux\Mods" />
 	</Target>
 
 	<Target Name="ZipOutputPath" AfterTargets="Build">
         <ZipDirectory SourceDirectory="$(Latest)" Overwrite="true" DestinationFile="$(SolutionDir)\Releases\flex-$(VersionPrefix).zip" />
     </Target>
 
+	<Target Name="PostBuild" AfterTargets="ZipOutputPath">
+		<Unzip SourceFiles="$(SolutionDir)\Releases\flex-$(VersionPrefix).zip"
+			 DestinationFolder="$(FACEPUNCH_ENGINE)" />
+	</Target>
+
 	<ItemGroup>
+	  <PackageReference Include="HarmonyX" Version="2.16.1" />
 	  <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.3.0" />
 	  <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Reference Include="0Harmony">
-	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\0Harmony.dll</HintPath>
-	  </Reference>
-	  <Reference Include="BepInSbox.Core">
-	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\BepInSbox.Core.dll</HintPath>
-	  </Reference>
-	  <Reference Include="BepInSbox.NET.Common">
-	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\BepInSbox.NET.Common.dll</HintPath>
-	  </Reference>
-	  <Reference Include="BepInSbox.NET.CoreCLR">
-	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\BepInSbox.NET.CoreCLR.dll</HintPath>
-	  </Reference>
-	  <Reference Include="BepInSbox.Preloader.Core">
-	    <HintPath>$(FACEPUNCH_ENGINE)\BepInSbox\core\BepInSbox.Preloader.Core.dll</HintPath>
-	  </Reference>
 	  <Reference Include="Sandbox.Access">
 	    <HintPath>$(FACEPUNCH_ENGINE)\bin\managed\Sandbox.Access.dll</HintPath>
 	  </Reference>

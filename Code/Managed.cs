@@ -23,4 +23,5 @@ internal static class Managed
 	internal static Assembly Menu => FindAssembly( "Sandbox.Menu" );
 	internal static Assembly GameInstance => FindAssembly( "Sandbox.GameInstance" );
 	internal static Assembly System => FindAssembly( "Sandbox.System" );
+	internal static Assembly Reflection => FindAssembly( "Sandbox.Reflection" );
 }

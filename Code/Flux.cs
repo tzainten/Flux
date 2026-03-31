@@ -1,28 +1,13 @@
-using BepInSbox;
-using BepInSbox.Core.Sbox;
-using Flux.Reflection;
 using HarmonyLib;
 using Sandbox;
 using Sandbox.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json.Serialization;
 using static Editor.EditorUtility;
 
 namespace Flux;
-
-[BepInPlugin( "Flux", "tzainten.Flux", "1.0.0" )]
-public class FluxBootstrap : BaseSandboxPlugin
-{
-	protected override void OnPluginLoad()
-	{
-		base.OnPluginLoad();
-
-		Flux.HarmonyInstance = HarmonyInstance;
-		Flux.Instance = new();
-		Flux.Instance.OnPluginLoad();
-	}
-}
 
 public class FluxSystem : GameObjectSystem<FluxSystem>
 {
@@ -43,9 +28,11 @@ public partial class Flux
 
 	public static Logger Log = new( "Flux" );
 
-	public static Harmony HarmonyInstance;
+	public static Harmony Harmony;
 
 	public string Root;
+
+	public string ModsRoot => Path.Combine( Root, @"..\Mods" );
 
 	public string SandboxRoot;
 
@@ -55,10 +42,15 @@ public partial class Flux
 	private Dictionary<string, byte[]> _pendingHotloads = new();
 	private Dictionary<string, DateTime> _hotloadTimestamps = new();
 
-	public void OnPluginLoad()
+	[UnmanagedCallersOnly]
+	public static void OnPluginLoad()
 	{
-		Instance = this;
+		MainThread.Queue( () => { Instance = new(); } );
+	}
 
+	public Flux()
+	{
+		Harmony = new Harmony( "Flux.Harmony" );
 		Root = Path.GetDirectoryName( Managed.This.Location );
 		SandboxRoot = Path.GetFullPath( Path.Combine( Root, @"..\..\" ) );
 
@@ -78,6 +70,9 @@ public partial class Flux
 
 	void InjectCommands()
 	{
+		var typeLibraryType = Managed.Reflection.GetType( "Sandbox.Internal.TypeLibrary" );
+		typeLibraryType.GetMethod( "AddAssembly", BindingFlags.Instance | BindingFlags.NonPublic ).Invoke( Game.TypeLibrary, [Assembly.GetExecutingAssembly(), true] );
+
 		var conVarSystemType = Managed.Engine.GetType( "Sandbox.ConVarSystem" );
 		var addAssembly = conVarSystemType.GetMethod( "AddAssembly", BindingFlags.Static | BindingFlags.NonPublic );
 		addAssembly?.Invoke( null, new object[] { Managed.This, "flux", null } );
@@ -85,7 +80,7 @@ public partial class Flux
 
 	private void GatherAllProjects()
 	{
-		foreach ( var dir in Directory.GetDirectories( Root ) )
+		foreach ( var dir in Directory.GetDirectories( Path.Combine( Root, @"..\Mods" ) ) )
 		{
 			var fluxFile = Directory.GetFiles( dir, "*.flux" ).FirstOrDefault();
 			if ( fluxFile == null )
@@ -113,7 +108,7 @@ public partial class Flux
 		if ( pack == null )
 			return;
 
-		var folder = Path.Combine( Root, projectName );
+		var folder = Path.Combine( ModsRoot, projectName );
 		Directory.CreateDirectory( folder );
 
 		FluxProject project = new();
@@ -123,7 +118,7 @@ public partial class Flux
 		project.CodePath = Path.Combine( folder, "Code" );
 
 		project.WriteSlnx();
-		CopyDirectory( projectName, package, Path.GetFullPath( Path.Combine( Root, @"..\flex\project_template" ) ), folder );
+		CopyDirectory( projectName, package, Path.GetFullPath( Path.Combine( Root, @"ProjectTemplate" ) ), folder );
 
 		AddProject( project );
 	}
