@@ -1,6 +1,6 @@
 # Flux
 
-This is a simple [BepInSbox](https://github.com/CiarenceW/BepInSbox) plugin that hooks into a package right before it's compiled, letting you inject your own code along with it.
+This is a simple injector for [s&box](https://sbox.game/) that hooks into a package right before it's compiled, letting you inject your own code along with it.
 
 This lets you write mods with full type safety and IntelliSense instead of relying on reflection.
 
@@ -25,19 +25,11 @@ internal class MySystem : GameObjectSystem<MySystem>
 ```
 
 # How To Use
-1. Make sure you have [BepInSbox](https://github.com/CiarenceW/BepInSbox) installed.
-2. Download and extract a release into your `%FACEPUNCH_ENGINE%` directory
-3. Open s&box. Open the console and type `flux_new <projectName> <targetPackage>` (i.e: `flux_new MyMod facepunch.sandbox`)
-4. Head into `%FACEPUNCH_ENGINE%BepInSbox\plugins\` and a folder containing everything for your mod should be in there, ready to go.
-
-# Setting Up IntelliSense (Optional)
-You'll notice that there's a `ThirdParty` folder in your mod's folder. This is where you can place a compiled .dll for an s&box package, and then you'll have intellisense for that package.
-
-NOTE: You don't need intellisense in order for your mod to work. If your code is correct, s&box will compile your mod correctly alongside the package you're injecting into.
+1. Download and extract the [latest release](https://github.com/tzainten/Flux/releases/latest) into your `%FACEPUNCH_ENGINE%` directory
+2. Open s&box. Open the console and type `flux_new <projectName> <targetPackage>` (i.e: `flux_new MyMod facepunch.sandbox`)
+3. Head into `%FACEPUNCH_ENGINE%Flux\Mods\` and a folder containing everything for your mod should be in there, ready to go.
+4. When you load that package in-game, all of it's source code will be extracted into any mods targeting that package.
 
 # Limitations
 
-- There's currently no hotloading support. I do want this, so if anyone has any ideas, don't be a stranger.
-- You are still limited to the whitelist access control. I'm not sure if I can get around this, so again, I'm open to ideas!
-- BepInSbox does not support loading into sbox.exe directly. You'll need to patch it yourself. ([It's stupid easy, I promise](https://github.com/CiarenceW/BepInSbox/blob/f7e066fe18211d33fe72e80b92bca0dbe3c4b72e/Doorstop/dllmain.cpp#L292))
-- BepInSbox also seems to have a bug that causes a GameObject leak, completely crashing s&box. This seems to be an upstream issue, with no workaround at the moment.
+- You are still limited to the whitelist access control.
