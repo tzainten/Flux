@@ -106,7 +106,9 @@ public partial class Flux
 	{
 		var pack = await Package.FetchAsync( package, true );
 		if ( pack == null )
-			return;
+		{
+			Log.Warning( $"Failed to find '{package}'. Either it doesn't exist, or it's hidden." );
+		}
 
 		var folder = Path.Combine( ModsRoot, projectName );
 		Directory.CreateDirectory( folder );
