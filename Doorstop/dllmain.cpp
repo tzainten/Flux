@@ -14,6 +14,15 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
     {
+        char_t ModuleBuffer[MAX_PATH] = { 0 };
+
+        GetModuleFileName(NULL, ModuleBuffer, MAX_PATH);
+
+        std::filesystem::path ModuleExe(ModuleBuffer);
+
+        if (ModuleExe.filename() != L"sbox.exe")
+            return FALSE;
+
         ManagedRuntime Runtime;
 
         ManagedRuntimeParameters Params;
