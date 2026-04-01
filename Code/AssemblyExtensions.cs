@@ -48,6 +48,17 @@ internal static class AssemblyExtensions
 		Flux.Harmony.Patch( method, postfix: new HarmonyMethod( typeof( Flux ).GetMethod( patch, ALL_DECLARED ) ) );
 	}
 
+	internal static void Prefix( this Assembly assembly, string typeName, string methodName, Type[] parameters, string patch, BindingFlags flags = ALL_DECLARED )
+	{
+		var type = assembly.GetType( typeName )
+			?? throw new InvalidOperationException( $"Type '{typeName}' not found in '{assembly.GetName().Name}'" );
+
+		var method = type.GetMethod( methodName, flags, null, parameters, null )
+			?? throw new InvalidOperationException( $"Method '{methodName}' not found on '{typeName}'" );
+
+		Flux.Harmony.Patch( method, prefix: new HarmonyMethod( typeof( Flux ).GetMethod( patch, ALL_DECLARED ) ) );
+	}
+
 	internal static void Postfix( this Assembly assembly, string typeName, string methodName, Type[] parameters, string patch, BindingFlags flags = ALL_DECLARED )
 	{
 		var type = assembly.GetType( typeName )
