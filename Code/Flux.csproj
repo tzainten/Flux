@@ -31,11 +31,11 @@
 	</Target>
 
 	<Target Name="ZipOutputPath" AfterTargets="Build">
-        <ZipDirectory SourceDirectory="$(Latest)" Overwrite="true" DestinationFile="$(SolutionDir)\Releases\flex-$(VersionPrefix).zip" />
+        <ZipDirectory SourceDirectory="$(Latest)" Overwrite="true" DestinationFile="$(SolutionDir)\Releases\flux-$(VersionPrefix).zip" />
     </Target>
 
 	<Target Name="PostBuild" AfterTargets="ZipOutputPath">
-		<Unzip SourceFiles="$(SolutionDir)\Releases\flex-$(VersionPrefix).zip"
+		<Unzip SourceFiles="$(SolutionDir)\Releases\flux-$(VersionPrefix).zip"
 			 DestinationFolder="$(FACEPUNCH_ENGINE)" />
 	</Target>
 

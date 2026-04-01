@@ -56,7 +56,8 @@ public partial class Flux
 
 		RunHarmonyPatches();
 		GatherAllProjects();
-		InjectCommands();
+
+		MainThread.Queue( () => { InjectCommands(); } );
 	}
 
 	public void Tick()
