@@ -1,3 +1,4 @@
+using Flux.Reflection;
 using HarmonyLib;
 using Sandbox;
 using Sandbox.Diagnostics;
@@ -22,6 +23,14 @@ public class FluxSystem : GameObjectSystem<FluxSystem>
 	}
 }
 
+public struct FluxHotload
+{
+	public string FullIdent;
+	public DateTime Start;
+	public byte[] AssemblyData;
+	public byte[] CodeArchiveData;
+}
+
 public partial class Flux
 {
 	public static Flux Instance;
@@ -39,8 +48,7 @@ public partial class Flux
 	public Dictionary<string, List<FluxProject>> Projects = new();
 
 	private bool _isCompiling = false;
-	private Dictionary<string, byte[]> _pendingHotloads = new();
-	private Dictionary<string, DateTime> _hotloadTimestamps = new();
+	private List<FluxHotload> _pendingHotloads = new();
 
 	[UnmanagedCallersOnly]
 	public static void OnPluginLoad()
@@ -156,20 +164,35 @@ public partial class Flux
 
 	private async Task CompileDirtyProjects()
 	{
-		foreach ( var project in FluxProject.DirtyProjects )
+		try
 		{
-			Log.Info( $"Hotloading {project.Package}" );
-			_hotloadTimestamps.Add( project.Package, DateTime.Now );
+			foreach ( var project in FluxProject.DirtyProjects )
+			{
+				Log.Info( $"Hotloading {project.Package}" );
+				DateTime start = DateTime.Now;
 
-			await project.CompileGroup.BuildAsync();
+				await project.CompileGroup.BuildAsync();
 
-			if ( !project.Compiler.Output.Successful )
-				continue;
+				if ( !project.Compiler.Output.Successful )
+					continue;
 
-			_pendingHotloads[project.Package] = project.Compiler.Output.AssemblyData;
+				_pendingHotloads.Add( new()
+				{
+					FullIdent = project.Package,
+					AssemblyData = project.Compiler.Output.AssemblyData,
+					CodeArchiveData = project.Compiler.Output.Archive.Serialize(),
+					Start = start
+				} );
+			}
 		}
-
-		FluxProject.DirtyProjects.Clear();
-		_isCompiling = false;
+		catch ( Exception e )
+		{
+			Log.Error( $"Flux Hotload compilation failed: {e}" );
+		}
+		finally
+		{
+			FluxProject.DirtyProjects.Clear();
+			_isCompiling = false;
+		}
 	}
 }

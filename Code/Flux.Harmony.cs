@@ -1,9 +1,12 @@
 ﻿using Flux.Reflection;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Sandbox;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using static Editor.EditorUtility;
 
 namespace Flux;
 
@@ -16,7 +19,6 @@ public partial class Flux
 
 	private void RunHarmonyPatches()
 	{
-		Managed.Compiling.Postfix( "Sandbox.CodeArchive", "Deserialize", nameof( CodeArchive_Deserialize_Postfix ) );
 		Managed.Compiling.Postfix( "Sandbox.Compiler", "BuildArchive", nameof( Compiler_BuildArchive_Postfix ) );
 
 		Managed.GameInstance.Postfix( "Sandbox.GameInstanceDll", "CloseGame", nameof( GameInstanceDll_CloseGame_Postfix ) );
@@ -45,31 +47,31 @@ public partial class Flux
 		if ( !Instance._pendingHotloads.Any() )
 			return;
 
-		var activePackages = PackageManager.ActivePackages.Where( ap =>
+		foreach ( var hotload in Instance._pendingHotloads )
 		{
-			var package = (Package)__activePackage_Package_PropertyInfo.GetValue( ap );
-			return Instance._pendingHotloads.ContainsKey( package.FullIdent );
-		} );
+			var ident = hotload.FullIdent;
+			var start = hotload.Start;
+			var data = hotload.AssemblyData;
+			var archiveData = hotload.CodeArchiveData;
 
-		foreach ( var activePackage in activePackages )
-		{
-			var package = (Package)__activePackage_Package_PropertyInfo.GetValue( activePackage );
-			var assemblyFileSystem = __activePackage_AssemblyFileSystem_PropertyInfo.GetValue( activePackage ) as BaseFileSystem;
+			PackageLoader.EnsureILHotload( ident );
 
-			var dllFile = assemblyFileSystem?.FindFile( "", "*.dll", true )
-				.FirstOrDefault( f => f.Contains( package.FullIdent ) );
+			var activePackage = PackageManager.ActivePackages.FirstOrDefault( ap =>
+			{
+				var pkg = (Package)__activePackage_Package_PropertyInfo.GetValue( ap );
+				return pkg.FullIdent == ident;
+			} );
 
-			if ( dllFile == null )
-				continue;
+			Package package = activePackage != null
+				? (Package)__activePackage_Package_PropertyInfo.GetValue( activePackage )
+				: Package.FetchAsync( ident, true ).GetAwaiter().GetResult();
 
-			GameInstanceDll.LoadAssemblyFromPackage( activePackage, dllFile, Instance._pendingHotloads[package.FullIdent] );
+			PackageLoader.LoadAssemblyDirect( package, ident, data, archiveData );
 
-			var start = Instance._hotloadTimestamps[package.FullIdent];
-			Log.Info( $"Hotloaded {package.FullIdent} in {(DateTime.Now - start).TotalSeconds.ToString( "N2" )}s" );
+			Log.Info( $"Hotloaded {ident} in {(DateTime.Now - start).TotalSeconds.ToString( "N2" )}s" );
 		}
 
 		Instance._pendingHotloads.Clear();
-		Instance._hotloadTimestamps.Clear();
 	}
 
 	private static void GameInstanceDll_CloseGame_Postfix( object __instance )
@@ -80,11 +82,13 @@ public partial class Flux
 		}
 	}
 
-	private static void CodeArchive_Deserialize_Postfix( object __instance, byte[] data )
+	private static void Compiler_BuildArchive_Postfix( object __instance, CompilerOutput output, CodeArchive __result )
 	{
-		var archive = (CodeArchive)__instance;
-		if ( __activePackage_Package == null || !Instance.Projects.ContainsKey( archive.CompilerName ) )
+		var compiler = (Compiler)__instance;
+		if ( !Instance.Projects.ContainsKey( compiler.Name ) )
 			return;
+
+		var archive = __result;
 
 		Log.Info( $"Attempting extraction of '{archive.CompilerName}'" );
 
@@ -94,17 +98,26 @@ public partial class Flux
 			var outputPath = Path.Combine( project.RootPath, "ThirdParty", archive.CompilerName );
 			var revisionPath = Path.Combine( outputPath, "REVISION" );
 
-			var shouldExtract = !File.Exists( revisionPath ) || long.Parse( File.ReadAllText( revisionPath ) ) != __activePackage_Package.Revision.VersionId;
+			if ( __activePackage_Package != null && __activePackage_Package.Revision != null )
+			{
+				var shouldExtract = !File.Exists( revisionPath ) || long.Parse( File.ReadAllText( revisionPath ) ) != __activePackage_Package.Revision.VersionId;
 
-			if ( !shouldExtract )
-				continue;
+				if ( !shouldExtract )
+					continue;
+			}
 
 			if ( Directory.Exists( outputPath ) )
-				Directory.Delete( outputPath, true );
+				continue; // @TODO: Maybe we should clean the directory if the revision doesn't match? But then the user would lose any manual changes they made! Tricky...
+
+			Directory.CreateDirectory( outputPath );
 
 			foreach ( var (path, content) in files )
 			{
-				var filePath = Path.Combine( outputPath, path );
+				var localPath = path;
+				if ( archive.FileMap.TryGetValue( path, out var mappedPath ) )
+					localPath = mappedPath;
+
+				var filePath = Path.Combine( outputPath, localPath );
 				Directory.CreateDirectory( Path.GetDirectoryName( filePath ) );
 				File.WriteAllText( filePath, content );
 			}
@@ -113,30 +126,28 @@ public partial class Flux
 			if ( !File.Exists( csProjPath ) )
 				File.WriteAllText( csProjPath, archive.MakeCsProjFile() );
 
-			File.WriteAllText( revisionPath, __activePackage_Package.Revision.VersionId.ToString() );
+			if ( __activePackage_Package != null && __activePackage_Package.Revision != null )
+				File.WriteAllText( revisionPath, __activePackage_Package.Revision.VersionId.ToString() );
 
 			project.WriteSlnx();
 			project.WriteCsproj();
 		}
-
-		__activePackage_Package = null;
-	}
-
-	private static void Compiler_BuildArchive_Postfix( object __instance, CodeArchive __result )
-	{
-		var compiler = (Compiler)__instance;
-		if ( !Instance.Projects.ContainsKey( compiler.Name ) )
-			return;
 
 		Log.Info( $"Injecting code into '{compiler.Name}'" );
 
 		foreach ( var project in Instance.Projects[compiler.Name] )
 		{
 			__result.InjectProject( project );
+
+			if ( project.Compiler != null )
+				continue;
+
 			compiler.AddSourcePath( project.CodePath );
 			compiler.MarkForRecompile();
 			project.Active = true;
 			project.Compiler = compiler;
 		}
+
+		__activePackage_Package = null;
 	}
 }

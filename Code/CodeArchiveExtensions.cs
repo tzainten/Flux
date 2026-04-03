@@ -25,13 +25,19 @@ public static class CodeArchiveExtensions
 		for ( int i = 0; i < archive.SyntaxTrees.Count; i++ )
 		{
 			var tree = archive.SyntaxTrees[i];
+
 			var filePath = tree.FilePath;
+			if ( archive.FileMap.TryGetValue( tree.FilePath, out var mappedPath ) )
+				filePath = mappedPath;
 
 			var modFilePath = Path.Combine( project.RootPath, "ThirdParty", archive.CompilerName, filePath );
 			if ( !File.Exists( modFilePath ) )
 				continue;
 
 			var newContent = File.ReadAllText( modFilePath );
+			if ( newContent.FastHash64() == tree.GetText().ToString().FastHash64() )
+				continue;
+
 			var newTree = CSharpSyntaxTree.ParseText(
 				newContent,
 				path: filePath,
@@ -44,13 +50,19 @@ public static class CodeArchiveExtensions
 		for ( int i = 0; i < archive.AdditionalFiles.Count; i++ )
 		{
 			var file = archive.AdditionalFiles[i];
+
 			var filePath = file.LocalPath;
+			if ( archive.FileMap.TryGetValue( file.LocalPath, out var mappedPath ) )
+				filePath = mappedPath;
 
 			var modFilePath = Path.Combine( project.RootPath, "ThirdParty", archive.CompilerName, filePath );
 			if ( !File.Exists( modFilePath ) )
 				continue;
 
 			var newContent = File.ReadAllText( modFilePath );
+			if ( newContent.FastHash64() == file.Text.FastHash64() )
+				continue;
+
 			archive.AdditionalFiles[i] = new CodeArchive.AdditionalFile( newContent, filePath );
 		}
 	}
