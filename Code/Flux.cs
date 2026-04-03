@@ -45,7 +45,7 @@ public partial class Flux
 	[UnmanagedCallersOnly]
 	public static void OnPluginLoad()
 	{
-		MainThread.Queue( () => { Instance = new(); } );
+		Instance = new();
 	}
 
 	public Flux()
