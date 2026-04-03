@@ -22,6 +22,7 @@ public partial class Flux
 		Managed.Compiling.Postfix( "Sandbox.Compiler", "BuildArchive", nameof( Compiler_BuildArchive_Postfix ) );
 
 		Managed.GameInstance.Postfix( "Sandbox.GameInstanceDll", "CloseGame", nameof( GameInstanceDll_CloseGame_Postfix ) );
+		Managed.GameInstance.Prefix( "Sandbox.GameInstanceDll", "FinishLoadingAssemblies", nameof( GameInstanceDll_FinishLoadingAssemblies_Prefix ) );
 		Managed.GameInstance.Postfix( "Sandbox.GameInstanceDll", "FinishLoadingAssemblies", nameof( GameInstanceDll_FinishLoadingAssemblies_Postfix ) );
 
 		Managed.Engine.Postfix( "Sandbox.PackageManager+ActivePackage", "CompileCodeArchive", nameof( PackageManager_ActivePackage_CompileCodeArchive_Postfix ) );
@@ -42,19 +43,21 @@ public partial class Flux
 		Log.Info( $"'{package.FullIdent}' is the ActivePackage" );
 	}
 
-	private static void GameInstanceDll_FinishLoadingAssemblies_Postfix()
+	private static void GameInstanceDll_FinishLoadingAssemblies_Prefix()
 	{
 		if ( !Instance._pendingHotloads.Any() )
 			return;
 
-		foreach ( var hotload in Instance._pendingHotloads )
+		Instance._inFlightHotloads.Clear();
+
+		var pendingHotloads = Instance._pendingHotloads.ToArray();
+		Instance._pendingHotloads.Clear();
+
+		foreach ( var hotload in pendingHotloads )
 		{
 			var ident = hotload.FullIdent;
-			var start = hotload.Start;
 			var data = hotload.AssemblyData;
 			var archiveData = hotload.CodeArchiveData;
-
-			PackageLoader.EnsureILHotload( ident );
 
 			var activePackage = PackageManager.ActivePackages.FirstOrDefault( ap =>
 			{
@@ -67,11 +70,21 @@ public partial class Flux
 				: Package.FetchAsync( ident, true ).GetAwaiter().GetResult();
 
 			PackageLoader.LoadAssemblyDirect( package, ident, data, archiveData );
+			Instance._inFlightHotloads.Add( hotload );
+		}
+	}
 
-			Log.Info( $"Hotloaded {ident} in {(DateTime.Now - start).TotalSeconds.ToString( "N2" )}s" );
+	private static void GameInstanceDll_FinishLoadingAssemblies_Postfix()
+	{
+		if ( !Instance._inFlightHotloads.Any() )
+			return;
+
+		foreach ( var hotload in Instance._inFlightHotloads )
+		{
+			Log.Info( $"Hotloaded {hotload.FullIdent} in {(DateTime.Now - hotload.Start).TotalSeconds.ToString( "N2" )}s" );
 		}
 
-		Instance._pendingHotloads.Clear();
+		Instance._inFlightHotloads.Clear();
 	}
 
 	private static void GameInstanceDll_CloseGame_Postfix( object __instance )

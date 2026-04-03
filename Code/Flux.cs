@@ -49,6 +49,7 @@ public partial class Flux
 
 	private bool _isCompiling = false;
 	private List<FluxHotload> _pendingHotloads = new();
+	private List<FluxHotload> _inFlightHotloads = new();
 
 	[UnmanagedCallersOnly]
 	public static void OnPluginLoad()
