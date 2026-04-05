@@ -17,9 +17,12 @@ public partial class Flux
 	private static PropertyInfo __activePackage_Package_PropertyInfo = Managed.Engine.GetType( "Sandbox.PackageManager+ActivePackage" ).GetProperty( "Package", BindingFlags.Instance | BindingFlags.Public );
 	private static PropertyInfo __activePackage_AssemblyFileSystem_PropertyInfo = Managed.Engine.GetType( "Sandbox.PackageManager+ActivePackage" ).GetProperty( "AssemblyFileSystem", BindingFlags.Instance | BindingFlags.Public );
 
+	private static HashSet<CompileGroup> __compileGroups = new();
+
 	private void RunHarmonyPatches()
 	{
 		Managed.Compiling.Postfix( "Sandbox.Compiler", "BuildArchive", nameof( Compiler_BuildArchive_Postfix ) );
+		Managed.Compiling.Prefix( "Sandbox.CompileGroup", "Dispose", nameof( CompileGroup_Dispose_Prefix ) );
 
 		Managed.GameInstance.Postfix( "Sandbox.GameInstanceDll", "CloseGame", nameof( GameInstanceDll_CloseGame_Postfix ) );
 		Managed.GameInstance.Prefix( "Sandbox.GameInstanceDll", "FinishLoadingAssemblies", nameof( GameInstanceDll_FinishLoadingAssemblies_Prefix ) );
@@ -27,6 +30,15 @@ public partial class Flux
 
 		Managed.Engine.Postfix( "Sandbox.PackageManager+ActivePackage", "CompileCodeArchive", nameof( PackageManager_ActivePackage_CompileCodeArchive_Postfix ) );
 		Managed.Engine.Prefix( "Sandbox.Scene", "InitSystems", nameof( Scene_InitSystems_Prefix ) );
+	}
+
+	private static bool CompileGroup_Dispose_Prefix( object __instance )
+	{
+		var group = (CompileGroup)__instance;
+		if ( __compileGroups.Contains( group ) )
+			return false;
+
+		return true;
 	}
 
 	private static void Scene_InitSystems_Prefix( object __instance )
@@ -93,6 +105,12 @@ public partial class Flux
 		{
 			project.Active = false;
 		}
+
+		foreach ( var group in __compileGroups )
+		{
+			group.Dispose();
+		}
+		__compileGroups.Clear();
 	}
 
 	private static void Compiler_BuildArchive_Postfix( object __instance, CompilerOutput output, CodeArchive __result )
@@ -100,6 +118,10 @@ public partial class Flux
 		var compiler = (Compiler)__instance;
 		if ( !Instance.Projects.ContainsKey( compiler.Name ) )
 			return;
+
+		var group = compiler.Group;
+		if ( !__compileGroups.Contains( group ) )
+			__compileGroups.Add( group );
 
 		var archive = __result;
 
