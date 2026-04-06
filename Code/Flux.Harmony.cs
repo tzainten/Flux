@@ -30,6 +30,7 @@ public partial class Flux
 
 		Managed.Engine.Postfix( "Sandbox.PackageManager+ActivePackage", "CompileCodeArchive", nameof( PackageManager_ActivePackage_CompileCodeArchive_Postfix ) );
 		Managed.Engine.Prefix( "Sandbox.Scene", "InitSystems", nameof( Scene_InitSystems_Prefix ) );
+		Managed.Engine.Postfix( "Sandbox.Scene", "InitSystems", nameof( Scene_InitSystems_Postfix ) );
 	}
 
 	private static bool CompileGroup_Dispose_Prefix( object __instance )
@@ -43,9 +44,12 @@ public partial class Flux
 
 	private static void Scene_InitSystems_Prefix( object __instance )
 	{
-		var scene = (Scene)__instance;
-
 		Game.TypeLibrary.GetType().GetMethod( "AddAssembly", BindingFlags.Instance | BindingFlags.NonPublic ).Invoke( Game.TypeLibrary, [Assembly.GetExecutingAssembly(), true] );
+	}
+
+	private static void Scene_InitSystems_Postfix( object __instance )
+	{
+		Game.TypeLibrary.GetType().GetMethod( "RemoveAssembly", BindingFlags.Instance | BindingFlags.NonPublic ).Invoke( Game.TypeLibrary, [Assembly.GetExecutingAssembly()] );
 	}
 
 	private static void PackageManager_ActivePackage_CompileCodeArchive_Postfix( object __instance )

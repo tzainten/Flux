@@ -80,9 +80,6 @@ public partial class Flux
 
 	void InjectCommands()
 	{
-		var typeLibraryType = Managed.Reflection.GetType( "Sandbox.Internal.TypeLibrary" );
-		typeLibraryType.GetMethod( "AddAssembly", BindingFlags.Instance | BindingFlags.NonPublic ).Invoke( Game.TypeLibrary, [Assembly.GetExecutingAssembly(), true] );
-
 		var conVarSystemType = Managed.Engine.GetType( "Sandbox.ConVarSystem" );
 		var addAssembly = conVarSystemType.GetMethod( "AddAssembly", BindingFlags.Static | BindingFlags.NonPublic );
 		addAssembly?.Invoke( null, new object[] { Managed.This, "flux", null } );
