@@ -1,5 +1,10 @@
 # Flux
 
+> [!CAUTION]
+> Game bans are trivial to implement — don't be malicious.
+> 
+> Instead, use this to test your own game's security against a modified s&box client.
+
 This is a simple injector for [s&box](https://sbox.game/) that hooks into a package right before it's compiled, letting you inject your own code along with it.
 
 This lets you write mods with full type safety and IntelliSense instead of relying on reflection.
